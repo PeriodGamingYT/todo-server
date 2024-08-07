@@ -22,3 +22,5 @@ go.work
 
 # DON'T REMOVE THIS!!!!
 passwords
+passwords.txt
+data

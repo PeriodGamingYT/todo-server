@@ -1,7 +1,7 @@
 This is a basic server in Go that holds a to do list, as well as an inventory.
 If you are on Linux, go into a terminal and type in "make" or "go run ." (They do the same thing).
 If you are on Windows, double click the run-server.bat file.
-If it can't find the file "password", it will prompt you to make one.
+If it can't find the file "password.txt", it will prompt you to make one.
 If you can't tell by the password file and the unencrypted data file, security is not of top concern. 
 So, if you are going to store sensitive information on there, it's best advised you don't.
 The password is there to control access to the server from the client side.
@@ -15,5 +15,6 @@ The server is designed to have on and off, non-continuous communication in mind.
 The client will send batches of changes they have made.
 The server will send the client the whole to do list, no matter how much actually changed.
 Each time a request like this happens, they always have to send the password along with their changes, as per the on/off communication.
-The designed client/app this is designed to communicate to is https://github.com/PeriodGamingYT/todo-client
+The designed client/app this is designed to communicate to is https://github.com/PeriodGamingYT/todo-client.
+They communicate in JSON.
 TODO: More details here once implementation comes around.
