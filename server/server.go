@@ -11,13 +11,11 @@ import (
 )
 
 type ChecklistItem struct {
-	name string
 	checked bool
 	index int
 }
 
 type InventoryItem struct {
-	name string
 	current int
 	max int
 	index int
@@ -60,7 +58,6 @@ func (serverData *ServerData) LoadJSONBytes(bytes []byte) error {
 	for key := range serverJson.Checklist {
 		item := serverJson.Checklist[key]
 		serverData.checklist[key] = ChecklistItem {
-			key,
 			item.Checked,
 			item.Index,
 		}
@@ -69,7 +66,6 @@ func (serverData *ServerData) LoadJSONBytes(bytes []byte) error {
 	for key := range serverJson.Inventory {
 		item := serverJson.Inventory[key]
 		serverData.inventory[key] = InventoryItem {
-			key,
 			item.Current,
 			item.Max,
 			item.Index,
@@ -94,6 +90,12 @@ func (serverData *ServerData) LoadJSON(filename string) error {
 	return nil
 }
 
+func (serverData *ServerData) SaveJSON() error {
+
+	// TODO(ElkElan): implement this
+	return nil
+}
+
 func (serverData *ServerData) LoadPassword() error {
 	file, err := os.Open("password.txt")
 	if err != nil { fmt.Println("Can't find password.txt!"); return err }
@@ -108,21 +110,107 @@ type dataRequestType int
 const(
 	ClientSave dataRequestType = iota
 	ClientLoad
+	ClientTest
 )
 
 type dataRequest struct {
 	Type dataRequestType `json:"type"`
-	Checklist []ChecklistItem `json:"checklist"`
-	Inventory []InventoryItem `json:"inventory"`
+	Password string `json:"password"`
+	Checklist map[string]checklistItemJson `json:"checklist"`
+	Inventory map[string]inventoryItemJson `json:"inventory"`
 }
 
-func DataHandler(writer http.ResponseWriter, req *http.Request) error {
+type dataResponse struct {
+	IsSuccess bool `json:"success"`
+	Checklist map[string]checklistItemJson `json:"checklist"`
+	Inventory map[string]inventoryItemJson `json:"inventory"`
+}
+
+// not the best, wish i could just pass this into data handler via some
+// pointer to user data
+var globalServerData *ServerData
+
+// the fact that there is no way to return errors because http.HandlerFunc doesn't
+// have error as a return type is not ideal at all. so this is the next best thing to
+// do
+func sendResponse(
+	writer http.ResponseWriter,
+	isSuccess bool,
+	includeData bool,
+) error {
+	response := dataResponse {
+		isSuccess,
+		nil,
+		nil,
+	}
+
+	if isSuccess && includeData {
+		for key, value := range globalServerData.checklist {
+			response.Checklist[key] = checklistItemJson {
+				value.checked,
+				value.index,
+			}
+		}
+
+		for key, value := range globalServerData.inventory {
+			response.Inventory[key] = inventoryItemJson {
+				value.current,
+				value.max,
+				value.index,
+			}
+		}
+	}
+
+	bytes, err := json.Marshal(response)
+	if err != nil { return err }
+	_, err = writer.Write(bytes)
+	if err != nil { return err }
+	return nil
+}
+
+func DataHandler(writer http.ResponseWriter, req *http.Request) {
 	var data dataRequest
 	err := json.NewDecoder(req.Body).Decode(&data)
-	if err := nil { return err }
+	if err != nil { return }
 
-	// TODO(ElkElan) handle that request
-	return nil
+	// cybersecurity is my passion
+	if data.Password != globalServerData.password {
+		err = sendResponse(writer, false, false)
+		if err != nil { return }
+		return
+	}
+
+	switch(data.Type) {
+		case ClientSave:
+			for key, value := range data.Checklist {
+				globalServerData.checklist[key] = ChecklistItem {
+					value.Checked,
+					value.Index,
+				}
+			}
+
+			for key, value := range data.Inventory {
+				globalServerData.inventory[key] = InventoryItem {
+					value.Current,
+					value.Max,
+					value.Index,
+				}
+			}
+
+			err = sendResponse(writer, true, false)
+			if err != nil { return }
+			err = globalServerData.SaveJSON()
+			if err != nil { return }
+
+		case ClientLoad:
+			err = sendResponse(writer, true, true)
+			if err != nil { return }
+
+		case ClientTest:
+			err = sendResponse(writer, true, false)
+			if err != nil { return }
+	}
+
 }
 
 func Init() error {
@@ -132,6 +220,7 @@ func Init() error {
 	if err != nil { return err }
 	err = serverData.LoadJSON("data.json")
 	if err != nil { return err }
+	globalServerData = &serverData
 	var server http.Server
 	server.Handler = http.HandlerFunc(DataHandler)
 	fmt.Println("Listening and serving...")
