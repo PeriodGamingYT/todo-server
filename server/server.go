@@ -90,12 +90,6 @@ func (serverData *ServerData) LoadJSON(filename string) error {
 	return nil
 }
 
-func (serverData *ServerData) SaveJSON() error {
-
-	// TODO(ElkElan): implement this
-	return nil
-}
-
 func (serverData *ServerData) LoadPassword() error {
 	file, err := os.Open("password.txt")
 	if err != nil { fmt.Println("Can't find password.txt!"); return err }
@@ -103,6 +97,32 @@ func (serverData *ServerData) LoadPassword() error {
 	result, err := io.ReadAll(file)
 	if err != nil { return err }
 	serverData.password = string(result[:])
+	return nil
+}
+
+func (serverData *ServerData) SaveJSON() error {
+	var data serverDataJson
+	data.Checklist = make(map[string]checklistItemJson)
+	for key, value := range serverData.checklist {
+		data.Checklist[key] = checklistItemJson {
+			value.checked,
+			value.index,
+		}
+	}
+
+	data.Inventory = make(map[string]inventoryItemJson)
+	for key, value := range serverData.inventory {
+		data.Inventory[key] = inventoryItemJson {
+			value.current,
+			value.max,
+			value.index,
+		}
+	}
+
+	bytes, err := json.Marshal(data)
+	if err != nil { return err }
+	err = os.WriteFile("data.json", bytes, 0644)
+	if err != nil { return err }
 	return nil
 }
 
@@ -129,10 +149,6 @@ type dataResponse struct {
 // not the best, wish i could just pass this into data handler via some
 // pointer to user data
 var globalServerData *ServerData
-
-// the fact that there is no way to return errors because http.HandlerFunc doesn't
-// have error as a return type is not ideal at all. so this is the next best thing to
-// do
 func sendResponse(
 	writer http.ResponseWriter,
 	isSuccess bool,
@@ -145,6 +161,7 @@ func sendResponse(
 	}
 
 	if isSuccess && includeData {
+		response.Checklist = make(map[string]checklistItemJson)
 		for key, value := range globalServerData.checklist {
 			response.Checklist[key] = checklistItemJson {
 				value.checked,
@@ -152,6 +169,7 @@ func sendResponse(
 			}
 		}
 
+		response.Inventory = make(map[string]inventoryItemJson)
 		for key, value := range globalServerData.inventory {
 			response.Inventory[key] = inventoryItemJson {
 				value.current,
@@ -168,10 +186,19 @@ func sendResponse(
 	return nil
 }
 
+// the fact that there is no way to return errors because http.HandlerFunc doesn't
+// have error as a return type is not ideal at all. so this is the next best thing to
+// do
 func DataHandler(writer http.ResponseWriter, req *http.Request) {
-	var data dataRequest
-	err := json.NewDecoder(req.Body).Decode(&data)
+	fmt.Println("Handling request...")
+	bytes, err := io.ReadAll(req.Body)
 	if err != nil { return }
+	fmt.Printf("Bytes: %+v\n", string(bytes[:]))
+	var data dataRequest
+	err = json.Unmarshal(bytes, &data)
+	fmt.Printf("Err: %+v\n", err)
+	if err != nil { return }
+	fmt.Printf("Data request value: %+v\n", data)
 
 	// cybersecurity is my passion
 	if data.Password != globalServerData.password {
@@ -182,11 +209,19 @@ func DataHandler(writer http.ResponseWriter, req *http.Request) {
 
 	switch(data.Type) {
 		case ClientSave:
+			if globalServerData.checklist == nil {
+				globalServerData.checklist = make(map[string]ChecklistItem)
+			}
+
 			for key, value := range data.Checklist {
 				globalServerData.checklist[key] = ChecklistItem {
 					value.Checked,
 					value.Index,
 				}
+			}
+
+			if globalServerData.inventory == nil {
+				globalServerData.inventory = make(map[string]InventoryItem)
 			}
 
 			for key, value := range data.Inventory {
@@ -220,6 +255,8 @@ func Init() error {
 	if err != nil { return err }
 	err = serverData.LoadJSON("data.json")
 	if err != nil { return err }
+	serverData.checklist = make(map[string]ChecklistItem)
+	serverData.inventory = make(map[string]InventoryItem)
 	globalServerData = &serverData
 	var server http.Server
 	server.Handler = http.HandlerFunc(DataHandler)

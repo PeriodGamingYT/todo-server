@@ -1,0 +1,11 @@
+{
+	"checklist": {
+		"a": { "checked": true, "index": 0 },
+		"b": { "checked": false, "index": 1 }
+	},
+
+	"inventory": {
+		"a": { "current": 0, "max": 5, "index": 0 },
+		"b": { "current": 1, "max": 6, "index": 1 }
+	}
+}
