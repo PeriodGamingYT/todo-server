@@ -261,7 +261,7 @@ func Init() error {
 	var server http.Server
 	server.Handler = http.HandlerFunc(DataHandler)
 	fmt.Println("Listening and serving...")
-	listen, err := net.Listen("tcp", "localhost:0")
+	listen, err := net.Listen("tcp", ":0")
 	if err != nil { return err }
 	fmt.Printf("Listening on %s\n", listen.Addr().String())
 	server.Serve(listen)
