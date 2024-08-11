@@ -1,8 +1,11 @@
 This is a basic server in Go that holds a to do list, as well as an inventory.
 If you are on Linux, go into a terminal and type in "make" or "go run ." (They do the same thing).
-If you are on Windows, double click the run-server.bat file.
-If it can't find the file "password.txt", it will prompt you to make one.
+If you are on Windows, use go run to start it.
+If it can't find the file "password.txt", it the server will stop and error out.
 If you can't tell by the password file and the unencrypted data file, security is not of top concern. 
+About security, it uses the HTTP protocol to communicate, but you can go to something like letsencrypt.info and modify this
+server to use that if you so wish.
+
 So, if you are going to store sensitive information on there, it's best advised you don't.
 The password is there to control access to the server from the client side.
 The reason this is is because a server instance is meant to only be used by a few people per instance.
